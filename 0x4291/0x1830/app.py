@@ -13,20 +13,18 @@ class RainbowUK(app.App):
         self.brightness = 0.1
         self.pattern = RainbowPattern()
 
-        self.button_a = config.pin[1]
-        self.button_a.init(pull=Pin.PULL_UP)
-        self.button_a.irq(self.dimmer)
+        config.pin[1].init(pull=Pin.PULL_UP)
+        config.pin[1].irq(self.dimmer)
 
-        self.button_b = config.pin[0]
-        self.button_b.init(pull=Pin.PULL_UP)
-        self.button_b.irq(self.brighter)
+        config.pin[0].init(pull=Pin.PULL_UP)
+        config.pin[0].irq(self.brighter)
 
-    def dimmer(self):
+    def dimmer(self, pin):
         self.brightness -= 0.05
         if self.brightness <= 0:
             self.brightness = 0
 
-    def brighter(self):
+    def brighter(self, pin):
         self.brightness += 0.05
         if self.brightness >= 0.2:
             self.brightness = 0.2
