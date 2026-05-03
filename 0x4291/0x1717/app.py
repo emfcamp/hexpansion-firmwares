@@ -14,6 +14,10 @@ def average_proportion(a, b, ratio):
 class InfraRed(app.App):
     def __init__(self, config=None):
         self.config = config
+        self.ir = config.pin[0]
+        self.ir.init(mode=Pin.IN, pull=Pin.PULL_UP)
+        config.pin[2].init(Pin.OUT, drive=Pin.DRIVE_3)
+        config.pin[2].value(1)
         config.pin[3].init(Pin.OUT, drive=Pin.DRIVE_0)
         self.leds = NeoPixel(config.pin[3],5)
         
