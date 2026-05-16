@@ -28,8 +28,6 @@ class ArcadeEditionApp(App):
             if 'PatternDisplay' == a.__class__.__name__:
                 self._fps = a._p.fps
 
-        print(config.ls_pin)
-
         self.pin_a = self.init_pin(config.ls_pin[4])
         self.pin_b = self.init_pin(config.ls_pin[3])
         self.pin_c = self.init_pin(config.ls_pin[2])
