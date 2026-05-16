@@ -95,7 +95,7 @@ jobs:
           gh issue comment "$ISSUE_NUMBER" \
             --body "Vendor ID \`$DIR_NAME\` has been reserved. A pull request has been opened: $PR_URL"
 
-      - name: Comment failure
+      - name: Comment failure and close
         if: steps.validate.outputs.valid == 'false'
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
@@ -103,4 +103,5 @@ jobs:
           REASON: ${{ steps.validate.outputs.reason }}
         run: |
           gh issue comment "$ISSUE_NUMBER" \
-            --body "Could not process vendor ID request: $REASON"
+            --body "Could not process vendor ID request: $REASON. Closing this issue. If you want to try again, please create a new issue."
+          gh issue close "$ISSUE_NUMBER"
