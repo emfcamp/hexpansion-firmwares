@@ -6,6 +6,7 @@ from system.eventbus import eventbus
 import asyncio
 from machine import Pin
 from events.input import Button, BUTTON_TYPES, ButtonDownEvent, ButtonUpEvent
+import settings
 
 class ArcadeEditionApp(App):
     buttons = {
@@ -35,14 +36,7 @@ class ArcadeEditionApp(App):
         self.pin_e = self.init_pin(config.pin[2])
         self.pin_f = self.init_pin(config.pin[3])
 
-        self._pin_values = {
-            'A': 1,
-            'B': 1,
-            'C': 1,
-            'D': 1,
-            'E': 1,
-            'F': 1
-        }
+        self._pin_values = {'A': 1,'B': 1,'C': 1,'D': 1,'E': 1,'F': 1}
 
     def init_pin(self, pin):
         pin.init(Pin.IN)
@@ -51,8 +45,9 @@ class ArcadeEditionApp(App):
 
     async def background_task(self):
         while True:
+            _o = settings.get("ae_led_o", "102") # def: grb
             for led in range(0, 12):
-                self._n[led] = (tildagonos.leds[led+1][1], tildagonos.leds[led+1][0], tildagonos.leds[led+1][2])
+                self._n[led] = (tildagonos.leds[led+1][int(_o[0])], tildagonos.leds[led+1][int(_o[1])], tildagonos.leds[led+1][int(_o[2])])
             self._n.write()
             await asyncio.sleep(1 / self._fps)
 
