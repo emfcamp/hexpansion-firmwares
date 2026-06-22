@@ -52,12 +52,21 @@ jobs:
             gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --create-if-none --edit-last \
               --body "This must be approved by an owner of this hexpansion before it can be merged. Those are ${unique_owners}. To approve this, comment \`/approve\`"
           else
-            gh api "repos/$GITHUB_REPOSITORY/check-runs" \
-              -X POST \
-              -f name="check-ownership" \
-              -f head_sha="$HEAD_SHA" \
-              -f status="completed" \
-              -f conclusion="success"
+            failing_run_id=$(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs" \
+              --jq '[.check_runs[] | select(.name == "check-ownership" and .conclusion == "failure")] | last | .id')
+            if [ -n "$failing_run_id" ] && [ "$failing_run_id" != "null" ]; then
+              gh api "repos/$GITHUB_REPOSITORY/check-runs/$failing_run_id" \
+                -X PATCH \
+                -f status="completed" \
+                -f conclusion="success"
+            else
+              gh api "repos/$GITHUB_REPOSITORY/check-runs" \
+                -X POST \
+                -f name="check-ownership" \
+                -f head_sha="$HEAD_SHA" \
+                -f status="completed" \
+                -f conclusion="success"
+            fi
           fi
           exit $failed
 
