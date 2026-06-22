@@ -30,7 +30,11 @@ jobs:
             --jq '[.[] | select(.state == "APPROVED") | .user.login] | unique | .[]')
           comment_approvals=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --paginate \
             --jq '[.[] | select(.body | test("^/approve$"; "m")) | .user.login] | unique | .[]')
-          users=($PR_AUTHOR $approvers $comment_approvals)
+          event_approver=""
+          if [[ "${{ github.event_name }}" == "issue_comment" && "${{ github.event.comment.body }}" == "/approve" ]]; then
+            event_approver="${{ github.event.comment.user.login }}"
+          fi
+          users=($PR_AUTHOR $approvers $comment_approvals $event_approver)
 
           failed=0
           all_owners=()
