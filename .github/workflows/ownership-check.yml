@@ -48,8 +48,15 @@ jobs:
           fi
           exit $failed
 
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Auto Merge
         run: gh pr merge --auto --merge "$PR_URL"
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url || github.event.issue.html_url }}
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
