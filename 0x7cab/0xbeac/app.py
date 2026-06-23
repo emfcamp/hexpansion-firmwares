@@ -10,7 +10,7 @@ from machine import UART, Pin
 class GPSApp(app.App):
     """Provides a GPS API for apps to use directly and GPS Events that other apps may subscribe to."""
 
-    VERSION = 2 # Increment this when making changes to the app that require the hexpansion app to be re-flashed with the new code.
+    VERSION = 3 # Increment this when making changes to the app that require the hexpansion app to be re-flashed with the new code.
 
     class GPSEvent(Event):
         def __init__(self, position, speed, bearing):
@@ -33,6 +33,10 @@ class GPSApp(app.App):
         self._position = None
         self._bearing = 0.0
         self._speed = 0.0
+
+        # Ring buffer of recent raw NMEA sentences (checksum stripped), so apps
+        # can parse additional sentence types (GGA/GSV/GSA) themselves
+        self._lines = []
 
         # Specifying a small time out to wait before giving up on receiving
         # more characters ensures we always read full messages from the UART
@@ -62,6 +66,11 @@ class GPSApp(app.App):
     def speed(self):
         """Ground speed in knots"""
         return round(self._speed, 2)
+
+    @property
+    def sentences(self):
+        """Recent raw NMEA sentences (checksum stripped) for apps to parse"""
+        return list(self._lines)
 
     async def background_task(self):
         """Override the default background task behaviour to give more time to other apps"""
@@ -94,7 +103,14 @@ class GPSApp(app.App):
         l = self.uart.readline()
         if l:
             try:
-                p = l.decode().strip().split(',')
+                line = l.decode().strip()
+
+                # Buffer the raw sentence so apps can parse other message types
+                self._lines.append(line.split('*')[0])
+                if len(self._lines) > 40:
+                    self._lines = self._lines[-40:]
+
+                p = line.split(',')
                 if p[0] == "$GPRMC" or p[0] == "$GNRMC":
                     if p[2] == "A":
                         lat = float(p[3][:2]) + float(p[3][2:]) / 60
