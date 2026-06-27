@@ -34,7 +34,7 @@ for parent in "$REPO_ROOT"/0x*/; do
     for child in "$parent"0x*/; do
         [ -d "$child" ] || continue
         child_name="$(basename "$child")"
-        archive_name="firmware_${parent_name}_${child_name}.tar.gz"
+        archive_name="firmware_${parent_name,,}_${child_name,,}.tar.gz"
         if [ -z "$(ls -A "$child")" ]; then
             echo "Skipping $parent_name/$child_name (empty)"
             continue
