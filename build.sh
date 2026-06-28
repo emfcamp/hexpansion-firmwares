@@ -16,6 +16,7 @@ pack() {
         if [ ${#py_args[@]} -gt 0 ]; then
             docker run --rm -v "${REPO_ROOT}:/firmware" \
                 ghcr.io/emfcamp/mpy-cross:v5.5.1 \
+                "-march=xtensawin" \
                 "${py_args[@]}"
             find "$child" -name '*.py' -delete
         fi
