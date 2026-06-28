@@ -21,6 +21,10 @@ class GPSApp(app.App):
         def __str__(self):
             return f"GPS fix {self.position}, speed {self.speed} knots, bearing {self.bearing}°"
 
+    # Cross-compatibility compatibity statements
+    CAPABILITIES = ["position", "nmea"]
+    EVENTS = [GPSEvent]
+
     def __init__(self, config=None):
         super().__init__()
 
