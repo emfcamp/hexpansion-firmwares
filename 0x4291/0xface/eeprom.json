@@ -1,0 +1,10 @@
+{
+  "manifest_version": "2024",
+  "fs_offset": 32,
+  "eeprom_page_size": 64,
+  "eeprom_total_size": 32768,
+  "vid": "0x4291",
+  "pid": "0xface",
+  "unique_id": 0,
+  "friendly_name": "Monster"
+}
