@@ -6,9 +6,9 @@ This is the bare bones driver app for the Caffeine Jitters hexpansion.
 It launches a simple background service, which responds to events from the eventbus, which are emitted by other apps.
 
 Currently it responds to:
-    - `EmotePositiveEvent` with a long upwards ramp
-    - `EmoteNegativeEvent` with a long downwards ramp
-    - `dict` types emitted from the eventbus (see below)
+- `EmotePositiveEvent` with a long upwards ramp
+- `EmoteNegativeEvent` with a long downwards ramp
+- `dict` types emitted from the eventbus (see below)
 
 This allows any app to add haptic feedback with just a couple of lines of extra code, without needing to scan for the hexpansion.
 
