@@ -8,6 +8,7 @@ It launches a simple background service, which responds to events from the event
 Currently it responds to:
 - `EmotePositiveEvent` with a long upwards ramp
 - `EmoteNegativeEvent` with a long downwards ramp
+- `ShowNotificationEvent` with a double click
 - `dict` types emitted from the eventbus (see below)
 
 This allows any app to add haptic feedback with just a couple of lines of extra code, without needing to scan for the hexpansion.
