@@ -1,0 +1,76 @@
+name: Size Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+  packages: read
+
+jobs:
+  size-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and size check each modified hexpansion
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          pairs=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --paginate --jq '.[].filename' \
+            | grep -oP '^0x[0-9A-Fa-f]{4}/0x[0-9A-Fa-f]{4}(?=/)' \
+            | sort -u || true)
+
+          if [ -z "$pairs" ]; then
+            echo "No hexpansion firmware directories modified, nothing to check."
+            echo "No hexpansion firmware directories modified." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "| Hexpansion | Result |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+
+          failed=0
+          while IFS=/ read -r vid pid; do
+            echo "::group::$vid/$pid"
+            if [ ! -d "$vid/$pid" ] || [ -z "$(ls -A "$vid/$pid")" ]; then
+              echo "Directory removed or empty, skipping."
+              echo "| \`$vid/$pid\` | skipped (removed or empty) |" >> "$GITHUB_STEP_SUMMARY"
+              echo "::endgroup::"
+              continue
+            fi
+
+            if ! ./build.sh "$vid" "$pid"; then
+              failed=1
+              echo "| \`$vid/$pid\` | build failed |" >> "$GITHUB_STEP_SUMMARY"
+              echo "::error::Build failed for $vid/$pid"
+              echo "::endgroup::"
+              continue
+            fi
+
+            if [ ! -f "$vid/$pid/eeprom.json" ]; then
+              echo "No eeprom.json, cannot determine EEPROM size. Skipping size check."
+              echo "| \`$vid/$pid\` | built, no eeprom.json to size check |" >> "$GITHUB_STEP_SUMMARY"
+              echo "::endgroup::"
+              continue
+            fi
+
+            if output=$(./sizecheck.sh "$vid" "$pid" 2>&1); then
+              echo "$output"
+              echo "| \`$vid/$pid\` | $(echo "$output" | grep '^Used') |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              failed=1
+              echo "$output"
+              echo "| \`$vid/$pid\` | **does not fit** — $(echo "$output" | grep '^Used') |" >> "$GITHUB_STEP_SUMMARY"
+              echo "::error::$vid/$pid does not fit in its EEPROM"
+            fi
+            echo "::endgroup::"
+          done <<< "$pairs"
+
+          exit $failed

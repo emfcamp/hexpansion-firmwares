@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+usage() {
+    echo "Usage: $(basename "$0") [VID PID]    e.g. $(basename "$0") 0x4291 0x1830" >&2
+    exit 2
+}
+
+case $# in
+    0) ;;
+    2) ;;
+    *) usage ;;
+esac
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="$REPO_ROOT/build"
 
@@ -19,6 +30,7 @@ pack() {
                     ghcr.io/emfcamp/mpy-cross:v5.5.1 \
                     "-march=xtensawin" \
                     "-s" "$(basename "$py_arg")" \
+                    "-O3" \
                     "$py_arg"
             done
             find "$child" -name '*.py' -delete
@@ -33,18 +45,32 @@ pack() {
 
 mkdir -p "$BUILD_DIR"
 
+children=()
 for parent in "$REPO_ROOT"/0x*/; do
     parent_name="$(basename "$parent")"
+    [ $# -eq 0 ] || [ "${parent_name,,}" = "${1,,}" ] || continue
     for child in "$parent"0x*/; do
         [ -d "$child" ] || continue
         child_name="$(basename "$child")"
-        archive_name="firmware_${parent_name,,}_${child_name,,}.tar.gz"
-        if [ -z "$(ls -A "$child")" ]; then
-            echo "Skipping $parent_name/$child_name (empty)"
-            continue
-        fi
-        pack "$child" "$archive_name"
+        [ $# -eq 0 ] || [ "${child_name,,}" = "${2,,}" ] || continue
+        children+=("$child")
     done
+done
+
+if [ ${#children[@]} -eq 0 ]; then
+    echo "No firmware directory for ${1:-0x*}/${2:-0x*}" >&2
+    exit 1
+fi
+
+for child in "${children[@]}"; do
+    parent_name="$(basename "$(dirname "$child")")"
+    child_name="$(basename "$child")"
+    archive_name="firmware_${parent_name,,}_${child_name,,}.tar.gz"
+    if [ -z "$(ls -A "$child")" ]; then
+        echo "Skipping $parent_name/$child_name (empty)"
+        continue
+    fi
+    pack "$child" "$archive_name"
 done
 
 find "$BUILD_DIR" -maxdepth 1 -type f -empty -delete
