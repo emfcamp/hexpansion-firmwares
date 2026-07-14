@@ -1,0 +1,10 @@
+{
+    "manifest_version": "2024",
+    "fs_offset": 64,
+    "eeprom_page_size": 64,
+    "eeprom_total_size": 32768,
+    "vid": "0x4D42",
+    "pid": "0x5EE5",
+    "unique_id": 0,
+    "friendly_name": "Screen"
+}
