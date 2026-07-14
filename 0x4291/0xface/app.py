@@ -6,6 +6,7 @@ from events.input import BUTTON_TYPES, ButtonDownEvent
 from system.eventbus import eventbus
 from app_components import clear_background
 from system.scheduler.events import RequestForegroundPushEvent
+from system.hexpansion.events import HexpansionAppLauncherAddEvent
 
 
 PATH = __file__.rsplit("/", 1)[0]
@@ -49,9 +50,11 @@ class Monster(app.App):
 		self.alignment = 0
 		self.highlighted = 3
 		self.color = 0, 0, 0
+		self.initialised = False
 		try:
 			with open(f"{PATH}/colour.json", "rt", encoding="ascii") as colourfile:
 				data = json.load(colourfile)
+				self.initialised = True
 				self.color = data.get("color", (0, 0, 0))
 				self.highlighted = data.get("highlighted", 3)
 		except:
@@ -108,12 +111,9 @@ class Monster(app.App):
 		try:
 			for i in range(12):
 				if event.button.name == f'TOUCH{i+1:02}':
-					print(f"Pressed {i}")
 					i -= 1.5
 					i %= 12
 					self.highlighted = int(self.segments / 12 * i)
-					print(f"Moved to {self.highlighted}")
-					print()
 		except:
 			pass
 
@@ -122,12 +122,13 @@ class Monster(app.App):
 
 	def update(self, delta):
 		if not self.foregrounded: # Bring the app to the foreground on first run
-			eventbus.emit(RequestForegroundPushEvent(self))
+			eventbus.emit(HexpansionAppLauncherAddEvent(self.config.port, "Monster"))
+			if not self.initialised:
+				eventbus.emit(RequestForegroundPushEvent(self))
 			self.foregrounded = True
 
 	async def background_task(self):
 		while True:
-			print("BG", self.leds_running, self.color)
 			if self.leds_running:
 				self.leds[0] = self.color[0]//5, self.color[1]//5, self.color[2]//5
 				self.leds.write()
