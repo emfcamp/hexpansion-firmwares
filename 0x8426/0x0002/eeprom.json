@@ -1,0 +1,10 @@
+{
+    "manifest_version": "2024",
+    "fs_offset": 128,
+    "eeprom_page_size": 128,
+    "eeprom_total_size": 65536,
+    "vid": "0x8426",
+    "pid": "0x0002",
+    "unique_id": 0,
+    "friendly_name": "Geiger counter"
+}
