@@ -55,18 +55,10 @@ class KeyboardApp(App):
         self.ADDR = 0x34
         self.i2c = self.hexpansion_config.i2c
         # Based on https://github.com/Hack-a-Day/2025-Communicator_Badge/blob/main/firmware/badge/hardware/keyboard.py
-        self.i2c.writeto_mem(
-            self.ADDR, 0x1D, b"\xff"
-        )  # KP_GPIO1 all ROW7:0 to KP matrix
-        self.i2c.writeto_mem(
-            self.ADDR, 0x1E, b"\xff"
-        )  # KP_GPIO2 all COL7:0 to KP matrix
-        self.i2c.writeto_mem(
-            self.ADDR, 0x1F, b"\x03"
-        )  # KP_GPIO3 all COL9:8 to KP matrix
-        self.i2c.writeto_mem(
-            self.ADDR, 0x01, b"\x91"
-        )  # CFG Set the KE_IEN, INT_CFG, and AI bits
+        self.i2c.writeto_mem( self.ADDR, 0x1D, b"\xff")  # KP_GPIO1 all ROW7:0 to KP matrix
+        self.i2c.writeto_mem( self.ADDR, 0x1E, b"\xff")  # KP_GPIO2 all COL7:0 to KP matrix
+        self.i2c.writeto_mem( self.ADDR, 0x1F, b"\x03")  # KP_GPIO3 all COL9:8 to KP matrix
+        self.i2c.writeto_mem( self.ADDR, 0x01, b"\x91")  # CFG Set the KE_IEN, INT_CFG, and AI bits
         # Clear Interrupts
         self.i2c.writeto_mem(self.ADDR, 0x02, b"\x01")  # INT_STAT K_INT 1 to clear
         irq_pin = self.hexpansion_config.pin[2]
@@ -114,6 +106,15 @@ class KeyboardApp(App):
             elif keycode == "SOLDERPARTY":
                 self.set_leds_color(0, 0, 0)
                 self.follow_pattern = True
+            elif keycode == "SPACE":
+                if self.led_owner is None or self.led_owner is self:
+                    self.follow_pattern = False
+                    self.wleds[1] = self.wleds[2] = (255, 0, 0)
+                    self.wleds[0] = self.wleds[3] = (255, 255, 0)
+                    self.wleds[4] = (0, 255, 0)
+                    self.wleds[6] = self.wleds[7] = (128, 0, 255)
+                    self.wleds[5] = self.wleds[8] = (0, 0, 255)
+                    self.wleds.write()
 
         if keycode == "SHIFT":
             self.shifted = pressed
@@ -143,14 +144,10 @@ class KeyboardApp(App):
                 left_mid_led = tildagonos.leds[(2 * self.hexpansion_config.port) - 1]
                 right_mid_led = tildagonos.leds[(2 * self.hexpansion_config.port) - 2]
                 right_led = tildagonos.leds[(2 * self.hexpansion_config.port) - 3]
-                self.wleds[0] = left_mid_led
-                self.wleds[1] = left_led
-                self.wleds[2] = left_led
-                self.wleds[3] = left_mid_led
-                self.wleds[5] = right_mid_led
-                self.wleds[6] = right_led
-                self.wleds[7] = right_led
-                self.wleds[8] = right_mid_led
+                self.wleds[1] = self.wleds[2] = left_led
+                self.wleds[0] = self.wleds[3] = left_mid_led
+                self.wleds[6] = self.wleds[7] = right_led
+                self.wleds[5] = self.wleds[8] = right_mid_led
                 self.wleds.write()
             await asyncio.sleep(1 / self.fps)
 
