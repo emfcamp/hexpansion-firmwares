@@ -36,6 +36,9 @@ SHIFTED_KEY_MAP = {
 
 
 class KeyboardApp(App):
+
+    CAP = ["@neopixels/"]
+
     def __init__(self, config=None):
         self.button_states = Buttons(self)
         self.hexpansion_config = config
@@ -69,14 +72,16 @@ class KeyboardApp(App):
         irq_pin = self.hexpansion_config.pin[2]
         irq_pin.init(irq_pin.IN, irq_pin.PULL_UP)
         irq_pin.irq(self.handle_keyboard_irq, irq_pin.IRQ_FALLING)
-        self.wleds = NeoPixel(self.hexpansion_config.pin[0], 9)
+        self.leds = self.wleds = NeoPixel(self.hexpansion_config.pin[0], 9)
+        self.led_owner = None
         self.set_leds_color(0, 0, 0)
         self.follow_pattern = True
 
     def set_leds_color(self, r, g, b):
         self.follow_pattern = False
-        self.wleds.fill((r, g, b))
-        self.wleds.write()
+        if self.led_owner is None or self.led_owner is self:
+            self.wleds.fill((r, g, b))
+            self.wleds.write()
 
     def handle_keyboard_irq(self, _):
         num_events = self.i2c.readfrom_mem(self.ADDR, 0x03, 1)
@@ -91,7 +96,6 @@ class KeyboardApp(App):
 
     def handle_keyboard_key(self, key, pressed):
         keycode = KEYCODES[key]
-        print(keycode)
         if self.fned and pressed:
             if keycode == "SQUARE":
                 self.set_leds_color(255, 0, 0)
@@ -120,7 +124,6 @@ class KeyboardApp(App):
             if self.shifted:
                 button_keycode = SHIFTED_KEY_MAP.get(button_keycode) or button_keycode
             button = KEYBOARD_BUTTONS.get(button_keycode)
-            print(button)
             if button:
                 if pressed:
                     if self.shifted and button_keycode == keycode:
@@ -135,7 +138,7 @@ class KeyboardApp(App):
 
     async def background_task(self):
         while True:
-            if self.follow_pattern:
+            if self.follow_pattern and (self.led_owner is None or self.led_owner is self):
                 left_led = tildagonos.leds[2 * self.hexpansion_config.port]
                 left_mid_led = tildagonos.leds[(2 * self.hexpansion_config.port) - 1]
                 right_mid_led = tildagonos.leds[(2 * self.hexpansion_config.port) - 2]
