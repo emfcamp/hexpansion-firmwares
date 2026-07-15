@@ -2,7 +2,7 @@ from app import App
 from app_components.dialog import KEYBOARD_BUTTONS
 from events.input import Buttons, ButtonDownEvent, ButtonUpEvent
 from system.eventbus import eventbus
-from neopixel import NeoPixel
+import neopixel
 from tildagonos import tildagonos
 from system.scheduler import scheduler
 import asyncio
@@ -35,9 +35,27 @@ SHIFTED_KEY_MAP = {
 }
 
 
+HORIZONTAL = (
+    (1, 2),
+    (3, 0),
+    (4, ),
+    (8, 5,),
+    (7, 6),
+)
+
+VERTICAL = (
+    (1, 0, 8, 7,),
+    (2, 3, 4, 5, 6),
+)
+
 class KeyboardApp(App):
 
-    CAP = ["@neopixels/"]
+    CAP = ["@neopixels/", "@merged_neopixels/"]
+
+    LED_GROUPS = {
+        "vertical": VERTICAL,
+        "horizontal": HORIZONTAL,
+    }
 
     def __init__(self, config=None):
         self.button_states = Buttons(self)
@@ -64,16 +82,20 @@ class KeyboardApp(App):
         irq_pin = self.hexpansion_config.pin[2]
         irq_pin.init(irq_pin.IN, irq_pin.PULL_UP)
         irq_pin.irq(self.handle_keyboard_irq, irq_pin.IRQ_FALLING)
-        self.leds = self.wleds = NeoPixel(self.hexpansion_config.pin[0], 9)
+        self.inner_leds = neopixel.NeoPixel(self.hexpansion_config.pin[0], 9)
+        self.setup_led_group('horizontal')
         self.led_owner = None
         self.set_leds_color(0, 0, 0)
         self.follow_pattern = True
 
+    def setup_led_group(self, led_group_name):
+        self.leds = neopixel.MergedNeoPixel(self.inner_leds, self.LED_GROUPS[led_group_name])
+
     def set_leds_color(self, r, g, b):
         self.follow_pattern = False
         if self.led_owner is None or self.led_owner is self:
-            self.wleds.fill((r, g, b))
-            self.wleds.write()
+            self.leds.fill((r, g, b))
+            self.leds.write()
 
     def handle_keyboard_irq(self, _):
         num_events = self.i2c.readfrom_mem(self.ADDR, 0x03, 1)
@@ -109,12 +131,17 @@ class KeyboardApp(App):
             elif keycode == "SPACE":
                 if self.led_owner is None or self.led_owner is self:
                     self.follow_pattern = False
-                    self.wleds[1] = self.wleds[2] = (255, 0, 0)
-                    self.wleds[0] = self.wleds[3] = (255, 255, 0)
-                    self.wleds[4] = (0, 255, 0)
-                    self.wleds[6] = self.wleds[7] = (128, 0, 255)
-                    self.wleds[5] = self.wleds[8] = (0, 0, 255)
-                    self.wleds.write()
+                    self.leds[0] = (255, 0, 0)
+                    self.leds[1] = (255, 255, 0)
+                    if self.leds.n > 2:
+                        self.leds[2] = (0, 255, 0)
+                        self.leds[3] = (128, 0, 255)
+                        self.leds[4] = (0, 0, 255)
+                    self.leds.write()
+            elif keycode == "RIGHT":
+                self.setup_led_group("horizontal")
+            elif keycode == "DOWN":
+                self.setup_led_group("vertical")
 
         if keycode == "SHIFT":
             self.shifted = pressed
@@ -140,15 +167,19 @@ class KeyboardApp(App):
     async def background_task(self):
         while True:
             if self.follow_pattern and (self.led_owner is None or self.led_owner is self):
-                left_led = tildagonos.leds[2 * self.hexpansion_config.port]
-                left_mid_led = tildagonos.leds[(2 * self.hexpansion_config.port) - 1]
-                right_mid_led = tildagonos.leds[(2 * self.hexpansion_config.port) - 2]
-                right_led = tildagonos.leds[(2 * self.hexpansion_config.port) - 3]
-                self.wleds[1] = self.wleds[2] = left_led
-                self.wleds[0] = self.wleds[3] = left_mid_led
-                self.wleds[6] = self.wleds[7] = right_led
-                self.wleds[5] = self.wleds[8] = right_mid_led
-                self.wleds.write()
+                lp = 2 * self.hexpansion_config.port
+                rp = 2 * ((self.hexpansion_config.port - 1) % 6)
+                left_led = tildagonos.leds[lp]
+                left_mid_led = tildagonos.leds[lp - 1]
+                right_mid_led = tildagonos.leds[rp]
+                right_led = tildagonos.leds[rp - 1]
+                self.leds[0] = left_led
+                self.leds[1] = left_mid_led
+                if self.leds.n > 2:
+                    self.leds[2] = (0, 0, 0)
+                    self.leds[3] = right_mid_led
+                    self.leds[4] = right_led
+                self.leds.write()
             await asyncio.sleep(1 / self.fps)
 
 
