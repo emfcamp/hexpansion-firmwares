@@ -38,6 +38,9 @@ class Monster(app.App):
 	LED_GROUPS = {
 		"both": ( (0, 1), ),
 		"individual": ( (0, ), (1, ), ),
+		"reversed": ( (1, ), (0, ), ),
+		"left only": ( (0, )),
+		"right only": ( (1, )),
 	}
 
 	def __init__(self, config=None):
