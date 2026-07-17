@@ -68,7 +68,7 @@ class GeigerApp(app.App):
                 ctx.move_to(0, 20).text(str(round(cpm)))
             else:
                 ctx.move_to(0, 20).text("???")
-                ctx.move_to(0, 50).text("CPM")
+            ctx.move_to(0, 50).text("CPM")
         else:
             ctx.rgb(1, 1, 1).move_to(0,-40).text("Use slots on")
             ctx.rgb(1, 1, 1).move_to(0,-10).text("the left")
