@@ -9,6 +9,7 @@ from system.hexpansion.events import HexpansionRemovalEvent, HexpansionInsertion
 from system.hexpansion.config import *
 from system.notification.events import ShowNotificationEvent
 
+
 class JitterHandler(app.App):
     def __init__(self, config):
         self.hexpansion_config = config
@@ -37,7 +38,7 @@ class JitterHandler(app.App):
             "continuous": 118,
             "hum":119,
         }
-        eventbus.on_async(dict, self.handle_dict_event, self.app)
+        eventbus.on_async("haptic", self.handle_haptic_event, self.app)
         eventbus.on_async(EmotePositiveEvent, self.handle_positive_emote, self.app)
         eventbus.on_async(EmoteNegativeEvent, self.handle_negative_emote, self.app)
         eventbus.on_async(ShowNotificationEvent, self.handle_notification, self.app)
@@ -46,7 +47,7 @@ class JitterHandler(app.App):
         self.minimise()
 
     def deinit(self): # Stop trying to respond to events if the hexpansion gets yoinked
-        eventbus.remove(dict, self.handle_dict_event, self.app)
+        eventbus.remove("haptic", self.handle_haptic_event, self.app)
         eventbus.remove(EmotePositiveEvent, self.handle_positive_emote, self.app)
         eventbus.remove(EmoteNegativeEvent, self.handle_negative_emote, self.app)
         eventbus.remove(ShowNotificationEvent, self.handle_notification, self.app)
@@ -62,16 +63,16 @@ class JitterHandler(app.App):
             
             await asyncio.sleep(0.05)
 
-    async def handle_dict_event(self, event):
-        if event["type"] == "haptic" and "haptic_type" in event:
+    async def handle_haptic_event(self, event):
+        if "effect" in event.data:
             if self.drv:
                 self.enable_pin.on()
-                if event["effect"] in self.effect_types:
-                    self.drv.sequence[0] = Effect(self.effect_types[event["haptic_type"]])
+                if event.data["effect"] in self.effect_types:
+                    self.drv.sequence[0] = Effect(self.effect_types[event.data["effect"]])
                     self.drv.play()
-                    if event["haptic_type"] == "continuous" or event["haptic_type"] == "hum":
-                        if "duration" in event:
-                            self.effect_duration = event["duration"]
+                    if event.data["effect"] == "continuous" or event.data["effect"] == "hum":
+                        if "duration" in event.data:
+                            self.effect_duration = event.data["duration"]
                         else:
                             self.effect_duration = 500 # default to 500ms
                             print("No duration given, defaulting to 0.5s")
