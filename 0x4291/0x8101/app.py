@@ -1,4 +1,5 @@
 import app
+import async_helpers
 from system.eventbus import eventbus
 from system.a11y.printer import PrintA11y
 from system.a11y.events import ReplaceAccessibiltiyHandlerEvent
@@ -109,9 +110,15 @@ class SpeechA11yHandler(PrintA11y):
 		self.synth = SpeechSynthesis(i2c)
 		self.synth.begin()
 
+	async def _idle(self):
+		pass
+
 	async def finalise_frame(self):
-		text = self.get_deduped_strings()
-		if text:
-			self.synth.speak(" ".join(text))
+		try:
+			text = self.get_deduped_strings()
+			if text:
+				await async_helpers.unblock(self.synth.speak, self._idle, " ".join(text))
+		except:
+			pass
 
 __app_export__ = ScreenReaderApp
