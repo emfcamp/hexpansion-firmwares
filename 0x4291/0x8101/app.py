@@ -1,5 +1,7 @@
 import app
+import asyncio
 import async_helpers
+import _thread
 from system.eventbus import eventbus
 from system.a11y.printer import PrintA11y
 from system.a11y.events import ReplaceAccessibiltiyHandlerEvent
@@ -9,33 +11,46 @@ import time
 I2C_ADDR = 0x40
 _STATUS_QUERY = bytes([0xFD, 0x00, 0x01, 0x21])
 i2c = None
+synth = None
 
 class ScreenReaderApp(app.App):
 
 	def __init__(self, config):
-		global i2c
+		global i2c, synth
 		super().__init__()
 		self.config = config
 		i2c = config.i2c
+		synth = SpeechSynthesis(i2c)
+		synth.begin()
 
 	def update(self, delta):
 		eventbus.emit(ReplaceAccessibiltiyHandlerEvent(SpeechA11yHandler))
 		self.minimise()
+
+	async def _idle(self):
+		pass
+
+	async def background_task(self):
+		while True:
+			await asyncio.sleep(20)
+			await async_helpers.unblock(synth.begin, self._idle)
 
 class SpeechSynthesis:
 	
 	def __init__(self, i2c, addr=I2C_ADDR):
 		self._i2c = i2c
 		self._addr = addr
+		self._lock = _thread.allocate_lock()
 
 	def begin(self):
-		for _ in range(40):
-			self._i2c.writeto(self._addr, bytes([0xAA]))
-			time.sleep_ms(50)
-			self._i2c.writeto(self._addr, _STATUS_QUERY)
-			if self._read_ack() == 0x4F:
-				break
-		self.set_volume(1)
+		with self._lock:
+			for _ in range(40):
+				self._i2c.writeto(self._addr, bytes([0xAA]))
+				time.sleep_ms(50)
+				self._i2c.writeto(self._addr, _STATUS_QUERY)
+				if self._read_ack() == 0x4F:
+					break
+			self.set_volume(10)
 
 	def _read_ack(self):
 		try:
@@ -73,7 +88,8 @@ class SpeechSynthesis:
 		self._wait()
 
 	def speak(self, text):
-		self._speak_english(text)
+		with self._lock:
+			self._speak_english(text)
 
 	def set_volume(self, vol):         self._speak_english(f'[v{min(vol, 9)}]')
 	def set_speed(self, speed):        self._speak_english(f'[s{min(speed, 9)}]')
@@ -107,8 +123,7 @@ class SpeechA11yHandler(PrintA11y):
 
 	def __init__(self):
 		super().__init__()
-		self.synth = SpeechSynthesis(i2c)
-		self.synth.begin()
+		self.synth = synth
 
 	async def _idle(self):
 		pass
