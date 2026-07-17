@@ -92,7 +92,7 @@ LINE = tuple((a, ) for a in range(76))
 PATH = __file__.rsplit("/", 1)[0]
 
 class UKIEMap(app.App):
-	CAP = ['@neopixels/', '@grouped_neopixels/', '@display_location/']
+	CAP = ['@neopixels/', '@merged_neopixels/', '@display_location/']
 
 	LED_GROUPS = {
 		"vertical": VERTICAL,
