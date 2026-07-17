@@ -92,7 +92,7 @@ LINE = tuple((a, ) for a in range(76))
 PATH = __file__.rsplit("/", 1)[0]
 
 class UKIEMap(app.App):
-	CAPABILITIES = ['neopixels', 'grouped_neopixels', 'leds_running', 'display_location']
+	CAP = ['@neopixels/', '@grouped_neopixels/', '@display_location/']
 
 	LED_GROUPS = {
 		"vertical": VERTICAL,
@@ -112,7 +112,7 @@ class UKIEMap(app.App):
 		self.alignment = 0
 		self.setup_led_group('vertical')
 		self.brightness = 0.1
-		self.leds_running = True	# leds_running capability
+		self.led_owner = None	# leds_running capability
 		self.pattern = RainbowPattern(self.leds.n)
 		self.group_keys = list(self.LED_GROUPS.keys())
 
@@ -144,7 +144,7 @@ class UKIEMap(app.App):
 
 	async def background_task(self):
 		while True:
-			if self.leds_running:
+			if self.led_owner is None:
 				frame = self.pattern.next()
 				for i, val in enumerate(frame*7):
 					if i >= self.leds.n:
@@ -157,13 +157,13 @@ class UKIEMap(app.App):
 
 	# display_location capability
 	def clear_locations(self):
-		self.leds_running = False
+		self.led_owner = "location_capability"
 		self.inner_leds.fill((0,0,0))
 		self.inner_leds.write()
 	
 	def mark_location(self, lat, lon, color):
 		led = self.get_led_from_lat_lon(lat, lon)
-		if led is not None:
+		if led is not None and self.led_owner == "location_capability":
 			self.inner_leds[led] = color
 			self.inner_leds.write()
 	# End display_location capability
