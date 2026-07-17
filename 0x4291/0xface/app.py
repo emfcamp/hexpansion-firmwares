@@ -46,7 +46,7 @@ class Monster(app.App):
 		if config:
 			self.inner_leds = neopixel.NeoPixel(config.pin[3], 2)	# grouped_neopixels capability
 			self.setup_led_group('both')
-			self.leds_running = True
+			self.led_owner = None
 		self.alignment = 0
 		self.highlighted = 3
 		self.color = 0, 0, 0
@@ -105,6 +105,8 @@ class Monster(app.App):
 				self.saturation = 1
 		elif BUTTON_TYPES['CANCEL'] in event.button:
 			self.save_colour()
+			if self.led_owner is self:
+				self.led_owner = None
 			self.minimise()
 		elif BUTTON_TYPES['CONFIRM'] in event.button:
 			self.save_colour()
@@ -125,11 +127,12 @@ class Monster(app.App):
 			eventbus.emit(HexpansionAppLauncherAddEvent(self.config.port, "Monster"))
 			if not self.initialised:
 				eventbus.emit(RequestForegroundPushEvent(self))
+				self.led_owner = self
 			self.foregrounded = True
 
 	async def background_task(self):
 		while True:
-			if self.leds_running:
+			if self.led_owner is None or self.led_owner is self:
 				self.leds[0] = self.color[0]//5, self.color[1]//5, self.color[2]//5
 				self.leds.write()
 				await asyncio.sleep(1)
