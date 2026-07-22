@@ -8,6 +8,7 @@ from tildagonos import tildagonos
 import settings
 from events.input import BUTTON_TYPES, ButtonDownEvent, ButtonUpEvent, Button
 from events.custom import CustomEvent
+from events.joystick import JOYSTICK_BUTTON_TYPES
 from frontboards.common import FRONTBOARD_BUTTON_TYPES
 from system.eventbus import eventbus
 from system.hexpansion.events import HexpansionAppLauncherAddEvent
@@ -18,23 +19,32 @@ from app_components.layout import LinearLayout, DefinitionDisplay, ButtonDisplay
 
 # The IR encoding standards decoded by the ir_rx modules, paired with the
 # receiver class that implements each one.
-from .ir_rx import IR_RX
+from .ir_rx import IR_RX, HAVE_RMT_RX
 from .nec import NEC_8, NEC_16, SAMSUNG
 from .sony import SONY_12, SONY_15, SONY_20
 from .philips import RC5_IR, RC6_M0
 from .mce import MCE
 
+# NEC's 9ms leader survives the software capture fallback, so it is always
+# offered.
 ENCODINGS = [
     ("NEC 8-bit", NEC_8),
     ("NEC 16-bit", NEC_16),
-    #("Sony SIRC 12-bit", SONY_12),
-    #("Sony SIRC 15-bit", SONY_15),
-    #("Sony SIRC 20-bit", SONY_20),
-    #("Philips RC-5", RC5_IR),
-    #("Philips RC-6 mode 0", RC6_M0),
-    #("Microsoft MCE", MCE),
-    #("Samsung", SAMSUNG),
 ]
+
+# The remaining standards have much shorter leader marks (Sony 2.4ms, MCE 2ms,
+# RC-5 under 1ms), which the fallback cannot time reliably under host load.
+# Hardware RMT RX captures the leading edge exactly, so only offer them then.
+if HAVE_RMT_RX:
+    ENCODINGS += [
+        ("Sony SIRC 12-bit", SONY_12),
+        ("Sony SIRC 15-bit", SONY_15),
+        ("Sony SIRC 20-bit", SONY_20),
+        ("Philips RC-5", RC5_IR),
+        ("Philips RC-6 mode 0", RC6_M0),
+        ("Microsoft MCE", MCE),
+        ("Samsung", SAMSUNG),
+    ]
 
 # Persisted selection, keyed by standard name, and the event type emitted for
 # each decoded IR frame.
@@ -43,29 +53,27 @@ EVENT_SETTING_KEY = "ir_send_events"
 CONTROL_SETTING_KEY = "ir_control"
 IR_EVENT_TYPE = "ir_rx"
 
-# IR Control emulates the badge buttons from received IR frames. Each physical
-# System/Frontboard button gets an IR button parented to it, so emitting an
-# event for the IR button is treated as a press of the real button. Each is
+# IR Control emulates the badge buttons from received IR frames. Following the
+# frontboard convention (see frontboards/twentysix.py), each IR button carries
+# two parents: the generic System button and the specific Frontboard or Joystick
+# button. A single frame therefore reads as a press of either, so apps watching
+# for "Up" and apps watching for "Frontboard A" both see it. Each button is
 # mapped to an arbitrary NEC 8-bit command code (its index below).
 CONTROL_BUTTONS = [
-    BUTTON_TYPES["UP"],
-    BUTTON_TYPES["DOWN"],
-    BUTTON_TYPES["LEFT"],
-    BUTTON_TYPES["RIGHT"],
-    BUTTON_TYPES["CONFIRM"],
-    BUTTON_TYPES["CANCEL"],
-    FRONTBOARD_BUTTON_TYPES["A"],
-    FRONTBOARD_BUTTON_TYPES["B"],
-    FRONTBOARD_BUTTON_TYPES["C"],
-    FRONTBOARD_BUTTON_TYPES["D"],
-    FRONTBOARD_BUTTON_TYPES["E"],
-    FRONTBOARD_BUTTON_TYPES["F"],
+    Button("A", "IR", [BUTTON_TYPES["UP"], FRONTBOARD_BUTTON_TYPES["A"]]),
+    Button("B", "IR", [BUTTON_TYPES["RIGHT"], FRONTBOARD_BUTTON_TYPES["B"]]),
+    Button("C", "IR", [BUTTON_TYPES["CONFIRM"], FRONTBOARD_BUTTON_TYPES["C"]]),
+    Button("D", "IR", [BUTTON_TYPES["DOWN"], FRONTBOARD_BUTTON_TYPES["D"]]),
+    Button("E", "IR", [BUTTON_TYPES["LEFT"], FRONTBOARD_BUTTON_TYPES["E"]]),
+    Button("F", "IR", [BUTTON_TYPES["CANCEL"], FRONTBOARD_BUTTON_TYPES["F"]]),
+    Button("JOYUP", "IR", [BUTTON_TYPES["UP"], JOYSTICK_BUTTON_TYPES["UP"]]),
+    Button("JOYDOWN", "IR", [BUTTON_TYPES["DOWN"], JOYSTICK_BUTTON_TYPES["DOWN"]]),
+    Button("JOYLEFT", "IR", [BUTTON_TYPES["LEFT"], JOYSTICK_BUTTON_TYPES["LEFT"]]),
+    Button("JOYRIGHT", "IR", [BUTTON_TYPES["RIGHT"], JOYSTICK_BUTTON_TYPES["RIGHT"]]),
+    Button("JOYFIRE", "IR", [BUTTON_TYPES["CONFIRM"], JOYSTICK_BUTTON_TYPES["SELECT"]]),
 ]
 
-CONTROL_CODES = {
-    value: Button(parent.name, "IR", parent=parent)
-    for value, parent in enumerate(CONTROL_BUTTONS)
-}
+CONTROL_CODES = {value: button for value, button in enumerate(CONTROL_BUTTONS)}
 
 # NEC repeats every ~108ms while a key is held; drop the button this long after
 # the last frame with no repeat.
@@ -308,12 +316,20 @@ class InfraRed(app.App):
         return 1
 
     async def background_task(self):
+        tick = 0
         while 1:
+            # Collect a hardware-captured IR frame. A no-op unless the receiver
+            # is using RMT RX; polled well inside the ~108ms NEC repeat interval
+            # so a captured frame is never discarded before it is read.
+            self.receiver.poll()
+
             # Release a held IR Control button once its deadline has passed.
             if self._release_deadline is not None and \
                     time.ticks_diff(time.ticks_ms(), self._release_deadline) >= 0:
                 self._release()
-            if self.led_owner is None:
+            # The LEDs are refreshed every 40ms; the loop itself runs faster
+            # only so that poll() above is frequent enough.
+            if tick == 0 and self.led_owner is None:
                 elapsed = time.ticks_diff(time.ticks_ms(), self.last_signal)
                 count = self._active_led_count(elapsed)
                 if self._error_until is not None and \
@@ -332,6 +348,7 @@ class InfraRed(app.App):
                 for i in range(5):
                     self.leds[i] = colours[i] if i < count else (0, 0, 0)
                 self.leds.write()
-            await asyncio.sleep(0.1)
+            tick = (tick + 1) % 2
+            await asyncio.sleep(0.02)
 
 __app_export__ = InfraRed

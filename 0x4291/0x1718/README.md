@@ -25,13 +25,21 @@ for about 100ms, giving a quick indication of failed or corrupted reception.
 
 ## Reliability
 
-Reliable IR reception is still being worked on. Decoding runs in software on a
-busy host, so under load — for example while the screen reader is speaking or the
-display is doing heavy rendering — some frames can be missed (a red LED flash
-signals a dropped frame). Only the NEC schemes are enabled at present, as they
-are the most robust; the Sony, Philips, Microsoft MCE and Samsung decoders are
-temporarily disabled pending reliability improvements. Holding a button (which
-sends repeats) is more reliable than a single quick tap.
+Reliable IR reception is still being worked on, and what you get depends on your
+badge firmware.
+
+On firmware that provides hardware RMT receive (`esp32.RMTRX`), the pulse train
+is captured by the RMT peripheral independently of CPU load, so reception is
+accurate and **all** the encoding standards are offered.
+
+Without it, capture falls back to software on a busy host, so under load — for
+example while the screen reader is speaking or the display is doing heavy
+rendering — some frames can be missed (a red LED flash signals a dropped frame).
+In that case only the NEC standards are offered, as their long 9ms leader is the
+only one that survives the timing uncertainty; the Sony, Philips, Microsoft MCE
+and Samsung decoders are hidden because their much shorter leaders cannot be
+timed reliably. Holding a button (which sends repeats) is more reliable than a
+single quick tap.
 
 ## On-screen menu
 
@@ -44,6 +52,10 @@ return to the background.
 
   1. NEC 8-bit
   2. NEC 16-bit
+
+  On firmware with hardware RMT receive, Sony SIRC (12/15/20-bit), Philips RC-5,
+  Philips RC-6 mode 0, Microsoft MCE and Samsung are offered as well — see
+  [Reliability](#reliability).
 
 - **Notifications** — when on, each decoded frame raises an on-screen
   notification. This setting is in-memory only and resets to off on each launch.
@@ -73,8 +85,9 @@ eventbus.on(CustomEvent, on_ir, my_app)
 ```
 
 `value` is the command (which button), `addr` is the device address (which
-remote), and `ctrl` carries protocol-specific extra data (unused by the NEC
-schemes, so currently always 0). A negative `value` is a status code rather than
+remote), and `ctrl` carries protocol-specific extra data — for example the RC-5
+/ RC-6 toggle bit, or the Sony 20-bit extended address. It is unused by the NEC
+schemes, which always report 0. A negative `value` is a status code rather than
 a button (for example `-1` is an NEC repeat).
 
 ### Selecting the encoding
@@ -90,13 +103,22 @@ ir_app = get_app_by_vid_pid(0x4291, 0x1718)
 ir_app.select_encoding("NEC 16-bit")
 ```
 
-The name must be one of the currently enabled standards:
+The name must be one of the currently enabled standards. `NEC 8-bit` and
+`NEC 16-bit` are always available; the rest are only offered on firmware with
+hardware RMT receive (see [Reliability](#reliability)):
 
 - `NEC 8-bit`
 - `NEC 16-bit`
+- `Sony SIRC 12-bit`
+- `Sony SIRC 15-bit`
+- `Sony SIRC 20-bit`
+- `Philips RC-5`
+- `Philips RC-6 mode 0`
+- `Microsoft MCE`
+- `Samsung`
 
-An unrecognised name falls back to `NEC 8-bit`. The current standard is
-available as `ir_app.encoding_name`.
+An unrecognised (or unavailable) name falls back to `NEC 8-bit`. The current
+standard is available as `ir_app.encoding_name`.
 
 ## Using IR Control
 
@@ -105,18 +127,25 @@ its buttons. It only works with the **NEC 8-bit** encoding; if a different
 encoding is selected the toggle refuses to enable and shows a notification.
 Changing the encoding away from NEC 8-bit turns IR Control back off.
 
-Each of the badge's System and Frontboard buttons is emulated from an arbitrary
-NEC 8-bit command code:
+Each emulated button carries two identities, following the same convention as
+the badge's own frontboard: a generic System button (Up/Down/Left/Right/Confirm/
+Cancel) *and* a specific Frontboard or Joystick button. A single IR frame is
+therefore seen both by apps watching for "Up" and by apps watching for
+"Frontboard A" or "Joystick Up".
 
-| Command code | Button        |
-| ------------ | ------------- |
-| 0            | Up            |
-| 1            | Down          |
-| 2            | Left          |
-| 3            | Right         |
-| 4            | Confirm       |
-| 5            | Cancel        |
-| 6 – 11       | Frontboard A–F |
+| Command code | Frontboard / Joystick | Also acts as |
+| ------------ | --------------------- | ------------ |
+| 0            | Frontboard A          | Up           |
+| 1            | Frontboard B          | Right        |
+| 2            | Frontboard C          | Confirm      |
+| 3            | Frontboard D          | Down         |
+| 4            | Frontboard E          | Left         |
+| 5            | Frontboard F          | Cancel       |
+| 6            | Joystick Up           | Up           |
+| 7            | Joystick Down         | Down         |
+| 8            | Joystick Left         | Left         |
+| 9            | Joystick Right        | Right        |
+| 10           | Joystick Select       | Confirm      |
 
 When a matching frame is received a button-down is emitted. NEC sends repeat
 codes while a key is held; the button stays down as long as repeats keep
