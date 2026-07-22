@@ -1,3 +1,3 @@
 # 0xca75
 
-Vendor ID directory for @benclifford.
+This vendor ID is used in documentation at https://tildagon.badge.emfcamp.org/hexpansions/eeprom/
