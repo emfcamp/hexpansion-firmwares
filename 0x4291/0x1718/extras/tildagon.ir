@@ -5,75 +5,72 @@ Version: 1
 # then transmit these to drive the badge buttons. Address is ignored by IR
 # Control; only the command byte is matched.
 #
-name: Up
+# Each button acts as both a Frontboard/Joystick button and a generic System
+# button, e.g. A is also Up, C is also Confirm.
+#
+name: A_Up
 type: parsed
 protocol: NEC
 address: 00 00 00 00
 command: 00 00 00 00
 #
-name: Down
+name: B_Right
 type: parsed
 protocol: NEC
 address: 00 00 00 00
 command: 01 00 00 00
 #
-name: Left
+name: C_Confirm
 type: parsed
 protocol: NEC
 address: 00 00 00 00
 command: 02 00 00 00
 #
-name: Right
+name: D_Down
 type: parsed
 protocol: NEC
 address: 00 00 00 00
 command: 03 00 00 00
 #
-name: Confirm
+name: E_Left
 type: parsed
 protocol: NEC
 address: 00 00 00 00
 command: 04 00 00 00
 #
-name: Cancel
+name: F_Cancel
 type: parsed
 protocol: NEC
 address: 00 00 00 00
 command: 05 00 00 00
 #
-name: A
+name: Joy_Up
 type: parsed
 protocol: NEC
 address: 00 00 00 00
 command: 06 00 00 00
 #
-name: B
+name: Joy_Down
 type: parsed
 protocol: NEC
 address: 00 00 00 00
 command: 07 00 00 00
 #
-name: C
+name: Joy_Left
 type: parsed
 protocol: NEC
 address: 00 00 00 00
 command: 08 00 00 00
 #
-name: D
+name: Joy_Right
 type: parsed
 protocol: NEC
 address: 00 00 00 00
 command: 09 00 00 00
 #
-name: E
+name: Joy_Fire
 type: parsed
 protocol: NEC
 address: 00 00 00 00
 command: 0A 00 00 00
-#
-name: F
-type: parsed
-protocol: NEC
-address: 00 00 00 00
-command: 0B 00 00 00
 #
