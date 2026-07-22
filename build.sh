@@ -17,29 +17,37 @@ BUILD_DIR="$REPO_ROOT/build"
 
 pack() {
     local child="$1" archive_name="$2"
-    local tar_excludes=(--exclude=eeprom.json --exclude=README.md)
+    local tar_excludes=(--exclude=eeprom.json --exclude=README.md --exclude=extras)
+    local srcdir="$child"
     echo "Packing $(basename "$(dirname "$child")")/$(basename "$child") -> build/$archive_name"
     if [ -f "$child/USE_MPY" ]; then
+        # Compile the MPY in a throwaway copy so the source tree's .py files
+        # are never overwritten or deleted. Keep it under BUILD_DIR so it lives
+        # on the same mount Docker already shares.
+        srcdir="$(mktemp -d "$BUILD_DIR/.pack_XXXXXX")"
+        trap 'rm -rf "$srcdir"' RETURN
+        cp -a "$child/." "$srcdir/"
+
         local py_args=()
         while IFS= read -r -d '' f; do
-            py_args+=("${f/$REPO_ROOT//firmware}")
-        done < <(find "$child" -name '*.py' -print0)
+            py_args+=("${f/$srcdir//firmware}")
+        done < <(find "$srcdir" -name '*.py' -print0)
         if [ ${#py_args[@]} -gt 0 ]; then
             for py_arg in "${py_args[@]}"; do
-                docker run --rm -v "${REPO_ROOT}:/firmware" \
+                docker run --rm -v "${srcdir}:/firmware" \
                     ghcr.io/emfcamp/mpy-cross:v5.5.1 \
                     "-march=xtensawin" \
                     "-s" "$(basename "$py_arg")" \
                     "-O3" \
                     "$py_arg"
             done
-            find "$child" -name '*.py' -delete
+            find "$srcdir" -name '*.py' -delete
         fi
         tar_excludes+=(--exclude=USE_MPY)
     fi
-    (cd "$child" && tar czf "$BUILD_DIR/$archive_name" "${tar_excludes[@]}" .)
-    if [ -f "$child/eeprom.json" ]; then
-        cp "$child/eeprom.json" "$BUILD_DIR/${archive_name%.tar.gz}.json"
+    (cd "$srcdir" && tar czf "$BUILD_DIR/$archive_name" "${tar_excludes[@]}" .)
+    if [ -f "$srcdir/eeprom.json" ]; then
+        cp "$srcdir/eeprom.json" "$BUILD_DIR/${archive_name%.tar.gz}.json"
     fi
 }
 
