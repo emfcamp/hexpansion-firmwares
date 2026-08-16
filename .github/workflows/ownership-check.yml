@@ -1,32 +1,75 @@
 name: Ownership Check
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened]
   pull_request_review:
     types: [submitted, edited]
+  issue_comment:
+    types: [created]
+
+
+permissions:
+  pull-requests: write
+  contents: write
+  actions: write
 
 jobs:
   check-ownership:
     runs-on: ubuntu-latest
+    if: github.event_name != 'issue_comment' || github.event.issue.pull_request
     steps:
       - uses: actions/checkout@v4
 
       - name: Check each modified file against CODEOWNERS
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
         run: |
+          PR_AUTHOR=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.user.login')
           approvers=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews" --paginate \
             --jq '[.[] | select(.state == "APPROVED") | .user.login] | unique | .[]')
-          users=($PR_AUTHOR $approvers)
+          comment_approvals=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --paginate \
+            --jq '[.[] | select(.body | test("^/approve$"; "m")) | .user.login] | unique | .[]')
+          event_approver=""
+          if [[ "${{ github.event_name }}" == "issue_comment" && "${{ github.event.comment.body }}" == "/approve" ]]; then
+            event_approver="${{ github.event.comment.user.login }}"
+          fi
+          users=($PR_AUTHOR $approvers $comment_approvals $event_approver)
 
           failed=0
+          all_owners=()
           while IFS= read -r file; do
-            if ! python3 find_owner.py "$file" "${users[@]}"; then
+            if ! output=$(python3 find_owner.py "$file" "${users[@]}"); then
               echo "FAIL: none of [${users[*]}] is an owner of $file"
               failed=1
+              all_owners+=($(echo "$output" | tail -1))
             fi
           done < <(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --paginate --jq '.[].filename')
+          if [ $failed -eq 1 ]; then
+            unique_owners=$(echo "${all_owners[@]}" | tr ' ' '\n' | grep . | sed 's/^@*//' | sort -u | sed 's/^/@/' | tr '\n' ' ' | sed 's/ $//')
+            gh pr comment "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --create-if-none --edit-last \
+              --body "This must be approved by an owner of this hexpansion before it can be merged. Those are ${unique_owners}. To approve this, comment \`/approve\`"
+          else
+            HEAD_SHA=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.head.sha')
+            failed_run_id=$(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs" \
+              --jq '[.check_runs[] | select(.name == "check-ownership" and .conclusion == "failure" and (.details_url | contains("/actions/runs/")))] | last | .details_url' \
+              | grep -oP 'actions/runs/\K[0-9]+' || true)
+            if [ -n "$failed_run_id" ]; then
+              gh run rerun "$failed_run_id" --failed --repo "$GITHUB_REPOSITORY"
+            fi
+          fi
           exit $failed
+
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Auto Merge
+        run: gh pr merge --auto --merge "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url || github.event.issue.html_url }}
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}

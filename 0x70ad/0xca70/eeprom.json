@@ -1,0 +1,10 @@
+{
+"manifest_version": "2024",
+"fs_offset": 32,
+"eeprom_page_size": 32,
+"eeprom_total_size": 8192,
+"vid": "0x70AD",
+"pid": "0xCA70",
+"unique_id": 0,
+"friendly_name": "RedButton"
+}

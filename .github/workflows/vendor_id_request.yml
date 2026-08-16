@@ -51,7 +51,7 @@ jobs:
         run: |
           mkdir "$DIR_NAME"
           printf '# %s\n\nVendor ID directory for @%s.\n' "$DIR_NAME" "$USERNAME" > "$DIR_NAME/README.md"
-          printf '\n/%s/\t@%s\n' "$DIR_NAME" "$USERNAME" >> .github/CODEOWNERS
+          printf '\n/%s/\t@%s\n' "$DIR_NAME" "$USERNAME vid-pid-approver[bot]" >> .github/CODEOWNERS
 
       - name: Generate a token
         id: generate-token

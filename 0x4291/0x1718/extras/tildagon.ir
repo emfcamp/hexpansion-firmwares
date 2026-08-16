@@ -1,0 +1,76 @@
+Filetype: IR signals file
+Version: 1
+# Tildagon InfraRed hexpansion (0x4291/0x1718) - IR Control.
+# Select the "NEC 8-bit" encoding and enable "IR Control" on the hexpansion,
+# then transmit these to drive the badge buttons. Address is ignored by IR
+# Control; only the command byte is matched.
+#
+# Each button acts as both a Frontboard/Joystick button and a generic System
+# button, e.g. A is also Up, C is also Confirm.
+#
+name: A_Up
+type: parsed
+protocol: NEC
+address: 00 00 00 00
+command: 00 00 00 00
+#
+name: B_Right
+type: parsed
+protocol: NEC
+address: 00 00 00 00
+command: 01 00 00 00
+#
+name: C_Confirm
+type: parsed
+protocol: NEC
+address: 00 00 00 00
+command: 02 00 00 00
+#
+name: D_Down
+type: parsed
+protocol: NEC
+address: 00 00 00 00
+command: 03 00 00 00
+#
+name: E_Left
+type: parsed
+protocol: NEC
+address: 00 00 00 00
+command: 04 00 00 00
+#
+name: F_Cancel
+type: parsed
+protocol: NEC
+address: 00 00 00 00
+command: 05 00 00 00
+#
+name: Joy_Up
+type: parsed
+protocol: NEC
+address: 00 00 00 00
+command: 06 00 00 00
+#
+name: Joy_Down
+type: parsed
+protocol: NEC
+address: 00 00 00 00
+command: 07 00 00 00
+#
+name: Joy_Left
+type: parsed
+protocol: NEC
+address: 00 00 00 00
+command: 08 00 00 00
+#
+name: Joy_Right
+type: parsed
+protocol: NEC
+address: 00 00 00 00
+command: 09 00 00 00
+#
+name: Joy_Fire
+type: parsed
+protocol: NEC
+address: 00 00 00 00
+command: 0A 00 00 00
+#

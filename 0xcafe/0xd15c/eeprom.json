@@ -1,0 +1,10 @@
+{
+  "manifest_version": "2024",
+  "fs_offset": 32,
+  "eeprom_page_size": 16,
+  "eeprom_total_size": 2048,
+  "vid": "0xCAFE",
+  "pid": "0xD15C",
+  "unique_id": 0,
+  "friendly_name": "Flopagon"
+}

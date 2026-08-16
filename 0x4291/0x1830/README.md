@@ -25,7 +25,7 @@ At that point you can control the LEDs manually through the `inner_leds` attribu
 from system.hexpansion.util import get_app_by_vid_pid
 
 map_app = get_app_by_vid_pid(0x4291, 0x1830)
-map_app.running = False
+map_app.leds_running = False
 
 map_app.inner_leds.fill((50, 0, 0))
 map_app.inner_leds.write()
@@ -40,10 +40,9 @@ import random
 from system.hexpansion.util import get_app_by_vid_pid
 
 map_app = get_app_by_vid_pid(0x4291, 0x1830)
-map_app.running = False
+map_app.leds_running = False
 
-map_app.alignment = 2
-map_app.setup_neopixels()
+map_app.setup_led_group('coastal')
 
 for index in range(map_app.leds.n):
     map_app.leds[index] = random.randint(0, 50), random.randint(0, 50), random.randint(0, 50)
@@ -53,20 +52,15 @@ map_app.leds.write()
 
 ### Marking places
 
-When using `inner_leds` rather than a grouping pattern, you can also address LEDs by latitude/longitude.
+When using `inner_leds` rather than a grouping pattern, you can also address LEDs by latitude/longitude using the built-in `clear_locations` and `mark_location` methods.
 
 ```python
 from system.hexpansion.util import get_app_by_vid_pid
 
 map_app = get_app_by_vid_pid(0x4291, 0x1830)
-map_app.running = False
+map_app.clear_locations()
 
-map_app.inner_leds.fill((0, 0, 0))
-lat = 52
-lon = 0
-led_idx = map_app.get_led_from_lat_lon(lat, lon)
-map_app.inner_leds[led_idx] = (255, 0, 0)
-map_app.inner_leds.write()
+map_app.mark_location(52, 0, (255, 0, 0))
 ```
 
 ### Restoring the pattern
@@ -78,7 +72,7 @@ Once you are no longer controlling the LEDs, please restore the pattern:
 from system.hexpansion.util import get_app_by_vid_pid
 
 map_app = get_app_by_vid_pid(0x4291, 0x1830)
-map_app.running = True
+map_app.leds_running = True
 ```
 
 ## Power usage
@@ -92,7 +86,7 @@ import neopixel
 from system.hexpansion.util import get_app_by_vid_pid
 
 map_app = get_app_by_vid_pid(0x4291, 0x1830)
-map_app.running = False
+map_app.leds_running = False
 
 corrected_leds = neopixel.CorrectedNeoPixel(
     map_app.inner_leds,

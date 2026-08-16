@@ -1,0 +1,10 @@
+{
+    "manifest_version": "2024",
+    "fs_offset": 128,
+    "eeprom_page_size": 128,
+    "eeprom_total_size": 65536,
+    "vid": "0xCBCB",
+    "pid": "0x5000",
+    "unique_id": 0,
+    "friendly_name": "HexCurent"
+}

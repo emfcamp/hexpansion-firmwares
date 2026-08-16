@@ -1,150 +1,101 @@
 from app import App
-from app_components import clear_background
 from app_components.dialog import KEYBOARD_BUTTONS
-from events.input import BUTTON_TYPES, Buttons, ButtonDownEvent, ButtonUpEvent
+from events.input import Buttons, ButtonDownEvent, ButtonUpEvent
 from system.eventbus import eventbus
-from system.hexpansion.config import *
-
+import neopixel
+from tildagonos import tildagonos
+from system.scheduler import scheduler
+import asyncio
 
 # Based on https://gitlab.com/why2025/team-badge/firmware/-/blob/main/badgevms/drivers/tca8418.c
-KEYCODES = [
-    "NOTHING",
-    "ESCAPE",  # 0x1
-    "SQUARE",  # 0x2
-    "TRIANGLE",  # 0x3
-    "CROSS",  # 0x4
-    "CIRCLE",  # 0x5
-    "CLOUD",  # 0x6
-    "DIAMOND",  # 0x7
-    "BACKSPACE",  # 0x8
-    "0",  # 0x9
-    "MINUS",  # 0xa
-    "GRAVE",  # 0xb
-    "1",  # 0xc
-    "2",  # 0xd
-    "3",  # 0xe
-    "4",  # 0xf
-    "5",  # 0x10
-    "6",  # 0x11
-    "7",  # 0x12
-    "8",  # 0x13
-    "9",  # 0x14
-    "TAB",  # 0x15
-    "Q",  # 0x16
-    "W",  # 0x17
-    "E",  # 0x18
-    "R",  # 0x19
-    "T",  # 0x1a
-    "Y",  # 0x1b
-    "U",  # 0x1c
-    "I",  # 0x1d
-    "O",  # 0x1e
-    "FN",  # 0x1f
-    "A",  # 0x20
-    "S",  # 0x21
-    "D",  # 0x22
-    "F",  # 0x23
-    "G",  # 0x24
-    "H",  # 0x25
-    "J",  # 0x26
-    "K",  # 0x27
-    "L",  # 0x28
-    "LSHIFT",  # 0x29
-    "Z",  # 0x2a
-    "X",  # 0x2b
-    "C",  # 0x2c
-    "V",  # 0x2d
-    "B",  # 0x2e
-    "N",  # 0x2f
-    "M",  # 0x30
-    "COMMA",  # 0x31
-    "PERIOD",  # 0x32
-    "LEFT",  # 0x33
-    "DOWN",  # 0x34
-    "RIGHT",  # 0x35
-    "SLASH",  # 0x36
-    "UP",  # 0x37
-    "RSHIFT",  # 0x38
-    "SEMICOLON",  # 0x39
-    "APOSTROPHE",  # 0x3a
-    "ENTER",  # 0x3b
-    "EQUALS",  # 0x3c
-    "LCTRL",  # 0x3d
-    "LGUI",  # 0x3e
-    "ALT",  # 0x3f
-    "BACKSLASH",  # 0x40
-    "SPACE",  # 0x41
-    "SPACE",  # 0x42
-    "SPACE",  # 0x43
-    "ALT",  # 0x44
-    "P",  # 0x45
-    "LEFTBRACKET",  # 0x46
-    "UNKNOWN",  # 0x47
-    "UNKNOWN",  # 0x48
-    "UNKNOWN",  # 0x49
-    "UNKNOWN",  # 0x4a
-    "UNKNOWN",  # 0x4b
-    "UNKNOWN",  # 0x4c
-    "UNKNOWN",  # 0x4d
-    "UNKNOWN",  # 0x4e
-    "UNKNOWN",  # 0x4f
-    "RIGHTBRACKET",  # 0x50
-]
+KEYCODES = [ "NOTHING", "ESCAPE", "SQUARE", "TRIANGLE", "CROSS", "CIRCLE", "CLOUD", "DIAMOND", "BACKSPACE", "0", "-", "`", "1", "2", "3", "4", "5", "6", "7", "8", "9", "TAB", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "FN", "A", "S", "D", "F", "G", "H", "J", "K", "L", "SHIFT", "Z", "X", "C", "V", "B", "N", "M", ",", ".", "LEFT", "DOWN", "RIGHT", "/", "UP", "SHIFT", ";", "'", "ENTER", "=", "LCTRL", "SOLDERPARTY", "ALT", "\\", "SPACE", "SPACE", "SPACE", "ALT", "P", "[", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "]", ]  # fmt: skip
 
-CUSTOM_KEY_MAP = {
-    "LSHIFT": "SHIFT",
-    "RSHIFT": "SHIFT",
-    "MINUS": "-",
-    "GRAVE": "`",
-    "COMMA": ",",
-    "PERIOD": ".",
-    "SLASH": "/",
-    "SEMICOLON": ";",
-    "APOSTROPHE": "'",
-    "EQUALS": "=",
-    "BACKSLASH": "\\",
-    "LEFTBRACKET": "[",
-    "RIGHTBRACKET": "]",
+SHIFTED_KEY_MAP = {
+    "1": "!",
+    "2": "@",
+    "3": "#",
+    "4": "$",
+    "5": "%",
+    "6": "^",
+    "7": "&",
+    "8": "*",
+    "9": "(",
+    "0": ")",
+    "-": "_",
+    "`": "~",
+    ",": "<",
+    ".": ">",
+    "/": "?",
+    ";": ":",
+    "'": '"',
+    "=": "+",
+    "\\": "|",
+    "[": "{",
+    "]": "}",
 }
 
-#  for symbol in """!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~"""
 
+HORIZONTAL = (
+    (1, 2),
+    (3, 0),
+    (4, ),
+    (8, 5,),
+    (7, 6),
+)
+
+VERTICAL = (
+    (1, 0, 8, 7,),
+    (2, 3, 4, 5, 6),
+)
 
 class KeyboardApp(App):
+
+    CAP = ["@neopixels/", "@merged_neopixels/"]
+
+    LED_GROUPS = {
+        "vertical": VERTICAL,
+        "horizontal": HORIZONTAL,
+    }
+
     def __init__(self, config=None):
         self.button_states = Buttons(self)
         self.hexpansion_config = config
         if self.hexpansion_config:
             self.init_keyboard()
-
-    def update(self, delta):
-        if self.button_states.get(BUTTON_TYPES["CANCEL"]):
-            self.button_states.clear()
-            self.minimise()
+        self.fps = 5
+        for a in scheduler.apps:
+            if "PatternDisplay" == a.__class__.__name__:
+                self.fps = a._p.fps
 
     def init_keyboard(self):
+        self.shifted = False
+        self.fned = False
         self.ADDR = 0x34
         self.i2c = self.hexpansion_config.i2c
         # Based on https://github.com/Hack-a-Day/2025-Communicator_Badge/blob/main/firmware/badge/hardware/keyboard.py
-        self.i2c.writeto_mem(
-            self.ADDR, 0x1D, b"\xff"
-        )  # KP_GPIO1 all ROW7:0 to KP matrix
-        self.i2c.writeto_mem(
-            self.ADDR, 0x1E, b"\xff"
-        )  # KP_GPIO2 all COL7:0 to KP matrix
-        self.i2c.writeto_mem(
-            self.ADDR, 0x1F, b"\x03"
-        )  # KP_GPIO3 all COL9:8 to KP matrix
-        self.i2c.writeto_mem(
-            self.ADDR, 0x01, b"\x91"
-        )  # CFG Set the KE_IEN, INT_CFG, and AI bits
+        self.i2c.writeto_mem( self.ADDR, 0x1D, b"\xff")  # KP_GPIO1 all ROW7:0 to KP matrix
+        self.i2c.writeto_mem( self.ADDR, 0x1E, b"\xff")  # KP_GPIO2 all COL7:0 to KP matrix
+        self.i2c.writeto_mem( self.ADDR, 0x1F, b"\x03")  # KP_GPIO3 all COL9:8 to KP matrix
+        self.i2c.writeto_mem( self.ADDR, 0x01, b"\x91")  # CFG Set the KE_IEN, INT_CFG, and AI bits
         # Clear Interrupts
         self.i2c.writeto_mem(self.ADDR, 0x02, b"\x01")  # INT_STAT K_INT 1 to clear
         irq_pin = self.hexpansion_config.pin[2]
         irq_pin.init(irq_pin.IN, irq_pin.PULL_UP)
         irq_pin.irq(self.handle_keyboard_irq, irq_pin.IRQ_FALLING)
-        self.led_pin = self.hexpansion_config.pin[0]
-        self.led_pin.init(self.led_pin.OUT)
+        self.inner_leds = neopixel.NeoPixel(self.hexpansion_config.pin[0], 9)
+        self.setup_led_group('horizontal')
+        self.led_owner = None
+        self.set_leds_color(0, 0, 0)
+        self.follow_pattern = True
+
+    def setup_led_group(self, led_group_name):
+        self.leds = neopixel.MergedNeoPixel(self.inner_leds, self.LED_GROUPS[led_group_name])
+
+    def set_leds_color(self, r, g, b):
+        self.follow_pattern = False
+        if self.led_owner is None or self.led_owner is self:
+            self.leds.fill((r, g, b))
+            self.leds.write()
 
     def handle_keyboard_irq(self, _):
         num_events = self.i2c.readfrom_mem(self.ADDR, 0x03, 1)
@@ -153,20 +104,83 @@ class KeyboardApp(App):
             pressed = bool(e[0] & 0x80)
             key = e[0] & 0x7F
             if key > 0:
-                keycode = KEYCODES[key]
-                if keycode == "SQUARE":
-                    self.led_pin.off()
-                if keycode == "CIRCLE":
-                    self.led_pin.on()
-                keycode = CUSTOM_KEY_MAP.get(keycode) or keycode
-                button = KEYBOARD_BUTTONS.get(keycode)
-                if button:
-                    if pressed:
-                        eventbus.emit(ButtonDownEvent(button=button))
-                    else:
-                        eventbus.emit(ButtonUpEvent(button=button))
+                self.handle_keyboard_key(key, pressed)
         # Clear interrupt
         self.i2c.writeto_mem(self.ADDR, 0x02, b"\x01")  # INT_STAT K_INT 1 to clear
+
+    def handle_keyboard_key(self, key, pressed):
+        keycode = KEYCODES[key]
+        if self.fned and pressed:
+            if keycode == "SQUARE":
+                self.set_leds_color(255, 0, 0)
+            elif keycode == "TRIANGLE":
+                self.set_leds_color(255, 128, 0)
+            elif keycode == "CROSS":
+                self.set_leds_color(255, 255, 0)
+            elif keycode == "CIRCLE":
+                self.set_leds_color(0, 255, 0)
+            elif keycode == "CLOUD":
+                self.set_leds_color(0, 0, 255)
+            elif keycode == "DIAMOND":
+                self.set_leds_color(128, 0, 255)
+            elif keycode == "ESCAPE":
+                self.set_leds_color(0, 0, 0)
+            elif keycode == "SOLDERPARTY":
+                self.set_leds_color(0, 0, 0)
+                self.follow_pattern = True
+            elif keycode == "SPACE":
+                if self.led_owner is None or self.led_owner is self:
+                    self.follow_pattern = False
+                    self.leds[0] = (255, 0, 0)
+                    self.leds[1] = (255, 255, 0)
+                    if self.leds.n > 2:
+                        self.leds[2] = (0, 255, 0)
+                        self.leds[3] = (128, 0, 255)
+                        self.leds[4] = (0, 0, 255)
+                    self.leds.write()
+            elif keycode == "RIGHT":
+                self.setup_led_group("horizontal")
+            elif keycode == "DOWN":
+                self.setup_led_group("vertical")
+
+        if keycode == "SHIFT":
+            self.shifted = pressed
+        elif keycode == "FN":
+            self.fned = pressed
+        else:
+            button_keycode = keycode
+            if self.shifted:
+                button_keycode = SHIFTED_KEY_MAP.get(button_keycode) or button_keycode
+            button = KEYBOARD_BUTTONS.get(button_keycode)
+            if button:
+                if pressed:
+                    if self.shifted and button_keycode == keycode:
+                        shift_button = KEYBOARD_BUTTONS.get("SHIFT")
+                        eventbus.emit(ButtonDownEvent(button=shift_button))
+                        eventbus.emit(ButtonDownEvent(button=button))
+                        eventbus.emit(ButtonUpEvent(button=shift_button))
+                    else:
+                        eventbus.emit(ButtonDownEvent(button=button))
+                else:
+                    eventbus.emit(ButtonUpEvent(button=button))
+
+    async def background_task(self):
+        while True:
+            if self.follow_pattern and (self.led_owner is None or self.led_owner is self):
+                lp = 2 * self.hexpansion_config.port
+                rp = 2 * ((self.hexpansion_config.port - 1) % 6)
+                left_led = tildagonos.leds[lp]
+                left_mid_led = tildagonos.leds[lp - 1]
+                right_mid_led = tildagonos.leds[rp]
+                right_led = tildagonos.leds[rp - 1]
+                self.leds[0] = left_led
+                self.leds[1] = left_mid_led
+                if self.leds.n > 2:
+                    self.leds[2] = (0, 0, 0)
+                    self.leds[3] = right_mid_led
+                    self.leds[4] = right_led
+                self.leds.write()
+            await asyncio.sleep(1 / self.fps)
 
 
 __app_export__ = KeyboardApp

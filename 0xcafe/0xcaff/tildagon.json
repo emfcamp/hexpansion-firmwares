@@ -1,0 +1,10 @@
+{
+  "metadata": {
+    "providedCapabilities": [
+      {
+        "type": "ProvidedCapability",
+        "identifier": "https://tildagon.badge.emfcamp.org/capabilities/registry/haptic-feedback"
+      }
+    ]
+  }
+}

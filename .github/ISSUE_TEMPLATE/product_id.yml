@@ -22,3 +22,5 @@ body:
       options:
         - "0xCAFE"
         - "0xF055"
+    validations:
+      required: true

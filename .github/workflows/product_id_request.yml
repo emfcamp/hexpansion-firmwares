@@ -64,7 +64,7 @@ jobs:
         run: |
           mkdir "${VENDOR_DIR}/${PRODUCT_DIR}"
           printf '# %s/%s\n\nProduct ID directory for @%s.\n' "$VENDOR_DIR" "$PRODUCT_DIR" "$USERNAME" > "${VENDOR_DIR}/${PRODUCT_DIR}/README.md"
-          printf '\n/%s/%s\t@%s\n' "$VENDOR_DIR" "$PRODUCT_DIR" "$USERNAME" >> .github/CODEOWNERS
+          printf '\n/%s/%s\t@%s\n' "$VENDOR_DIR" "$PRODUCT_DIR" "$USERNAME vid-pid-approver[bot]" >> .github/CODEOWNERS
 
       - name: Generate a token
         id: generate-token

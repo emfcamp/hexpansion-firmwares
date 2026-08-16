@@ -4,6 +4,7 @@ import asyncio
 from patterns.rainbow import RainbowPattern
 from machine import Pin
 
+
 _LED_DATA = None
 _LAT_BASE = 49.5
 _LAT_STEP = 0.05
@@ -88,23 +89,32 @@ DIAGONAL_NE_SW = (
 )
 
 LINE = tuple((a, ) for a in range(76))
+PATH = __file__.rsplit("/", 1)[0]
 
-OPTIONS = [VERTICAL, HORIZONTAL, COASTAL, DIAGONAL_NW_SE, DIAGONAL_NE_SW, LINE]
+class UKIEMap(app.App):
+	CAP = ['@neopixels/', '@merged_neopixels/', '@display_location/']
 
+	LED_GROUPS = {
+		"vertical": VERTICAL,
+		"horizontal": HORIZONTAL,
+		"coastal": COASTAL,
+		"NW_SE": DIAGONAL_NW_SE,
+		"NE_SW": DIAGONAL_NE_SW,
+		"Continuous": LINE
+	}
 
-class UKMap(app.App):
 	def __init__(self, config=None):
 		self.config = config
 		global _LED_DATA
-		_LED_DATA = open(f"/hexpansion_{config.port}/led.bin", "rb").read()
+		_LED_DATA = open(f"{PATH}/led.bin", "rb").read()
 
-		config.pin[3].init(drive=Pin.DRIVE_3)
-		self.inner_leds = neopixel.NeoPixel(config.pin[3], 76)
+		self.inner_leds = neopixel.NeoPixel(config.pin[3], 76)	# grouped_neopixels capability
 		self.alignment = 0
-		self.setup_neopixels()
+		self.setup_led_group('vertical')
 		self.brightness = 0.1
-		self.running = True
+		self.led_owner = None	# leds_running capability
 		self.pattern = RainbowPattern(self.leds.n)
+		self.group_keys = list(self.LED_GROUPS.keys())
 
 		config.pin[1].init(pull=Pin.PULL_UP)
 		config.pin[1].irq(self.dimmer, Pin.IRQ_FALLING)
@@ -119,20 +129,22 @@ class UKMap(app.App):
 
 	def realign(self, pin=None):
 		self.alignment += 1
-		if self.alignment >= len(OPTIONS):
+		if self.alignment >= len(self.LED_GROUPS):
 			self.alignment = 0
-		self.setup_neopixels()
+		self.setup_led_group(self.group_keys[self.alignment])
 		self.pattern = RainbowPattern(self.leds.n)
 
-	def setup_neopixels(self):
-		self.leds = neopixel.MergedNeoPixel(self.inner_leds, OPTIONS[self.alignment])
+	# grouped_neopixels capability
+	def setup_led_group(self, led_group_name):
+		self.leds = neopixel.MergedNeoPixel(self.inner_leds, self.LED_GROUPS[led_group_name])
+	# End grouped_neopixels capability
 
 	def update(self, delta=None):
 		self.minimise()
 
 	async def background_task(self):
 		while True:
-			if self.running:
+			if self.led_owner is None:
 				frame = self.pattern.next()
 				for i, val in enumerate(frame*7):
 					if i >= self.leds.n:
@@ -142,6 +154,19 @@ class UKMap(app.App):
 				await asyncio.sleep(1/self.pattern.fps)
 			else:
 				await asyncio.sleep(1)
+
+	# display_location capability
+	def clear_locations(self):
+		self.led_owner = "location_capability"
+		self.inner_leds.fill((0,0,0))
+		self.inner_leds.write()
+	
+	def mark_location(self, lat, lon, color):
+		led = self.get_led_from_lat_lon(lat, lon)
+		if led is not None and self.led_owner == "location_capability":
+			self.inner_leds[led] = color
+			self.inner_leds.write()
+	# End display_location capability
 
 	def get_led_from_lat_lon(self, lat, lon):
 		data = _LED_DATA
@@ -164,4 +189,4 @@ class UKMap(app.App):
 			return best_i
 		return None
 
-__app_export__ = UKMap
+__app_export__ = UKIEMap

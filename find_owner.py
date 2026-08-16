@@ -41,4 +41,5 @@ if __name__ == "__main__":
     if len(sys.argv) > 2:
         candidates = {u.lstrip("@").lower() for u in sys.argv[2:]}
         owners = {o.lstrip("@").lower() for o in result.split()[1:]}
+        print(" ".join(f"@{o}" for o in sorted(owners)))
         sys.exit(0 if candidates & owners else 1)
